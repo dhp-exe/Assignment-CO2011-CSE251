@@ -1,103 +1,100 @@
 from src.parser import PetriNet
-from pyeda.inter import exprvars, expr, And, Or
+from dd.autoref import BDD
 import time
 
 """
-    Task 3: Computes all reachable markings using BDDs.
+    Task 3: Symbolic Reachability using real BDDs (dd.autoref)
 """
-def get_symbolic_reachable(net: PetriNet):
 
+def get_symbolic_reachable(net: PetriNet):
     print("\n--- Starting Task 3: Symbolic Reachability (BDD) ---")
     start_time = time.time()
 
-    place_ids = net.place_ids # Get consistent, sorted list
+    place_ids = net.place_ids
     n = len(place_ids)
-    
     if n == 0:
         print("Error: No places found in Petri net.")
         return None, None
-        
-    # --- 1. Create BDD variables ---
-    P_vars = exprvars('p', n)
-    P_prime_vars = exprvars('pp', n)
-    
-    P_map = {pid: P_vars[i] for i, pid in enumerate(place_ids)}
-    P_prime_map = {pid: P_prime_vars[i] for i, pid in enumerate(place_ids)}
-    
-    # --- 2. Create Initial Marking BDD ---
-    m0_literals = []
+
+    # --- 1. Initialize BDD manager and variables ---
+    bdd = BDD()
+    for pid in place_ids:
+        bdd.add_var(pid)
+        bdd.add_var(f"{pid}'")  # primed version for next state
+
+    # --- 2. Initial marking ---
+    m0 = bdd.true
     for pid in place_ids:
         if pid in net.initial_marking:
-            m0_literals.append(P_map[pid])
+            m0 &= bdd.var(pid)
         else:
-            m0_literals.append(~P_map[pid])
-    
-    Reachable_bdd = And(*m0_literals)
-    
-    # --- 3. Create Transition Relation BDD T(P, P') ---
-    T_bdds = []
-    for t_id, trans in net.transitions.items():
-        
-        pre_bdd = And(*(P_map[pid] for pid in trans['pre']))
-        post_bdd = And(*(P_prime_map[pid] for pid in trans['post']))
-        
-        frame_bdds = []
-        for pid in place_ids:
-            # Place is NOT in pre-set (doesn't get consumed)
-            # AND Place is NOT in post-set (doesn't get produced)
-            if pid not in trans['pre'] and pid not in trans['post']:
-                # Its state must be equivalent
-                frame_bdds.append(P_map[pid].equivalent(P_prime_map[pid])) 
-            
-            # Place IS in pre-set (consumed)
-            # AND Place is NOT in post-set (not produced)
-            elif pid in trans['pre'] and pid not in trans['post']:
-                # It must become empty
-                frame_bdds.append(~P_prime_map[pid])
-            
-            # Place is NOT in pre-set (not consumed)
-            # AND Place IS in post-set (produced)
-            elif pid not in trans['pre'] and pid in trans['post']:
-                # It must become full (this is already in post_bdd)
-                pass # Handled by post_bdd
-                
-            # Place IS in pre-set (consumed)
-            # AND Place IS in post-set (produced)
-            elif pid in trans['pre'] and pid in trans['post']:
-                # It must become full (this is already in post_bdd)
-                pass # Handled by post_bdd
+            m0 &= ~bdd.var(pid)
 
-        T_t = And(pre_bdd, post_bdd, *frame_bdds)
-        T_bdds.append(T_t)
-        
-    T = Or(*T_bdds)
-    
-    # --- 4. Perform Symbolic Image Computation ---
-    P_prime_to_P = {P_prime_vars[i]: P_vars[i] for i in range(n)}
-    
-    Frontier_bdd = Reachable_bdd
-    while not Frontier_bdd.is_zero():
-        # Img(P') = exists P: (Frontier(P) & T(P, P'))
-        
-        # MODIFIED: Unpack P_vars with a '*'
-        Img_P_prime = (Frontier_bdd & T).smoothing(*P_vars)
-        
-        # Img(P) = Img(P') [ P' -> P ]
-        Img_P = Img_P_prime.compose(P_prime_to_P)
-        
-        New_bdd = Img_P & ~Reachable_bdd
-        
-        Reachable_bdd = Reachable_bdd | New_bdd
-        Frontier_bdd = New_bdd
-        
+    Reachable = m0
+    Frontier = m0
+
+    # --- 3. Build Transition Relation T(P, P') ---
+    T = bdd.false
+    for t_id, t in net.transitions.items():
+        pre = bdd.true
+        post = bdd.true
+        frame = bdd.true
+
+        # Preconditions: all pre places must have tokens
+        for p in t['pre']:
+            pre &= bdd.var(p)
+
+        # Postconditions: all post places will have tokens
+        for p in t['post']:
+            post &= bdd.var(f"{p}'")
+
+        # Frame conditions: unchanged places keep same value
+        for p in place_ids:
+            if p not in t['pre'] and p not in t['post']:
+                # (p <-> p')
+                eq = (~bdd.var(p) & ~bdd.var(f"{p}'")) | (bdd.var(p) & bdd.var(f"{p}'"))
+                frame &= eq
+            elif p in t['pre'] and p not in t['post']:
+                # consumed
+                frame &= ~bdd.var(f"{p}'")
+            elif p not in t['pre'] and p in t['post']:
+                # produced -> already handled by post
+                pass
+            elif p in t['pre'] and p in t['post']:
+                # stays full
+                frame &= bdd.var(f"{p}'")
+
+        T_t = pre & post & frame
+        T |= T_t
+
+    # --- 4. Symbolic reachability fixpoint iteration ---
+    rename_map = {f"{p}'": p for p in place_ids}
+
+    iteration = 0
+    while Frontier != bdd.false:
+        iteration += 1
+        print(f"Iteration {iteration}...")
+
+        # Img(P') = ∃P. (Frontier(P) ∧ T(P,P'))
+        Img_P_prime = bdd.exist(place_ids, Frontier & T)
+
+        # Img(P) = Img(P') with renamed vars
+        Img_P = bdd.let(rename_map, Img_P_prime)
+
+        New = Img_P & ~Reachable
+        if New == bdd.false:
+            break
+
+        Reachable |= New
+        Frontier = New
+
     end_time = time.time()
-    
-    # --- 5. Report Results ---
-    # .satisfy_count() gives the number of satisfying assignments.
-    # Since our BDD is over all n P_vars, this is the number of markings.
-    num_markings = Reachable_bdd.satisfy_count()
-    
+
+    # --- 5. Report results ---
+    markings = list(bdd.pick_iter(Reachable, care_vars=place_ids))
+    num_markings = len(markings)
+
     print(f"Symbolically found {num_markings} reachable markings.")
     print(f"Symbolic computation took {end_time - start_time:.6f} seconds.")
-    
-    return Reachable_bdd, P_vars
+
+    return Reachable, [bdd.var(p) for p in place_ids]
