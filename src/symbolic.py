@@ -1,5 +1,5 @@
 from src.parser import PetriNet
-from pyeda.inter import exprvars, expr, And, Or  
+from pyeda.inter import exprvars, expr, And, Or
 import time
 
 """
@@ -32,14 +32,12 @@ def get_symbolic_reachable(net: PetriNet):
         else:
             m0_literals.append(~P_map[pid])
     
-    # MODIFIED: Use And() directly
     Reachable_bdd = And(*m0_literals)
     
     # --- 3. Create Transition Relation BDD T(P, P') ---
     T_bdds = []
     for t_id, trans in net.transitions.items():
         
-        # MODIFIED: Use And() directly
         pre_bdd = And(*(P_map[pid] for pid in trans['pre']))
         post_bdd = And(*(P_prime_map[pid] for pid in trans['post']))
         
@@ -49,7 +47,7 @@ def get_symbolic_reachable(net: PetriNet):
             # AND Place is NOT in post-set (doesn't get produced)
             if pid not in trans['pre'] and pid not in trans['post']:
                 # Its state must be equivalent
-                frame_bdds.append(P_map[pid].Equivalent(P_prime_map[pid]))
+                frame_bdds.append(P_map[pid].equivalent(P_prime_map[pid])) 
             
             # Place IS in pre-set (consumed)
             # AND Place is NOT in post-set (not produced)
@@ -69,11 +67,9 @@ def get_symbolic_reachable(net: PetriNet):
                 # It must become full (this is already in post_bdd)
                 pass # Handled by post_bdd
 
-        # MODIFIED: Use And() directly
         T_t = And(pre_bdd, post_bdd, *frame_bdds)
         T_bdds.append(T_t)
         
-    # MODIFIED: Use Or() directly
     T = Or(*T_bdds)
     
     # --- 4. Perform Symbolic Image Computation ---
@@ -82,7 +78,9 @@ def get_symbolic_reachable(net: PetriNet):
     Frontier_bdd = Reachable_bdd
     while not Frontier_bdd.is_zero():
         # Img(P') = exists P: (Frontier(P) & T(P, P'))
-        Img_P_prime = (Frontier_bdd & T).smoothing(P_vars)
+        
+        # MODIFIED: Unpack P_vars with a '*'
+        Img_P_prime = (Frontier_bdd & T).smoothing(*P_vars)
         
         # Img(P) = Img(P') [ P' -> P ]
         Img_P = Img_P_prime.compose(P_prime_to_P)
