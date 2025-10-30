@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="fork_join_net" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <page id="page1">
+      <place id="p_start">
+        <initialMarking>
+          <text>1</text>
+        </initialMarking>
+      </place>
+      <place id="p_left_wait" />
+      <place id="p_right_wait" />
+      <place id="p_left_done" />
+      <place id="p_right_done" />
+      <place id="p_end" />
+
+      <transition id="t_fork" />
+      <transition id="t_left_task" />
+      <transition id="t_right_task" />
+      <transition id="t_join" />
+
+      <arc id="a1" source="p_start" target="t_fork" />
+      <arc id="a2" source="t_fork" target="p_left_wait" />
+      <arc id="a3" source="t_fork" target="p_right_wait" />
+      
+      <arc id="a4" source="p_left_wait" target="t_left_task" />
+      <arc id="a5" source="t_left_task" target="p_left_done" />
+      
+      <arc id="a6" source="p_right_wait" target="t_right_task" />
+      <arc id="a7" source="t_right_task" target="p_right_done" />
+      
+      <arc id="a8" source="p_left_done" target="t_join" />
+      <arc id="a9" source="p_right_done" target="t_join" />
+      <arc id="a10" source="t_join" target="p_end" />
+    </page>
+  </net>
+</pnml>
