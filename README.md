@@ -12,7 +12,7 @@ This project is an assignment for the CO2011 Mathematical Modeling course, imple
 
 2.  Install the required Python libraries:
     ```bash
-    pip install pulp pyeda lxml
+    pip install pulp pyeda lxml dd
     ```
 
 ## 🚀 Running the Analysis
