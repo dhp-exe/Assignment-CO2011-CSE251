@@ -19,8 +19,8 @@ def get_symbolic_reachable(net: PetriNet):
     # --- 1. Initialize BDD manager and variables ---
     bdd = BDD()
     for pid in place_ids:
-        bdd.add_var(pid)
-        bdd.add_var(f"{pid}'")  # primed version for next state
+        bdd.add_var(pid)    # current state p
+        bdd.add_var(f" {pid}' ")  # next state p'
 
     # --- 2. Initial marking ---
     m0 = bdd.true
@@ -51,15 +51,18 @@ def get_symbolic_reachable(net: PetriNet):
         # Frame conditions: unchanged places keep same value
         for p in place_ids:
             if p not in t['pre'] and p not in t['post']:
-                # (p <-> p')
+                # unaffected -> remain the same
                 eq = (~bdd.var(p) & ~bdd.var(f"{p}'")) | (bdd.var(p) & bdd.var(f"{p}'"))
                 frame &= eq
+
             elif p in t['pre'] and p not in t['post']:
-                # consumed
+                # p is input -> consumed
                 frame &= ~bdd.var(f"{p}'")
+
             elif p not in t['pre'] and p in t['post']:
-                # produced -> already handled by post
+                # p is output -> produced -> already handled by post
                 pass
+            
             elif p in t['pre'] and p in t['post']:
                 # stays full
                 frame &= bdd.var(f"{p}'")
