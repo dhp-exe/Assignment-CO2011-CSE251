@@ -17,8 +17,3 @@ This project is an assignment for the CO2011 Mathematical Modeling course, imple
 
 ## 🚀 Running the Analysis
     python main.py --file tests/fork_join.pnml --task all
-    
-The main script `main.py` is used to run all tasks. Use the `--help` flag to see all options.
-
-```bash
-python main.py --help
