@@ -20,7 +20,7 @@ def get_symbolic_reachable(net: PetriNet):
     bdd = BDD()
     for pid in place_ids:
         bdd.add_var(pid)    # current state p
-        bdd.add_var(f" {pid}' ")  # next state p'
+        bdd.add_var(f"{pid}'")  # next state p'
 
     # --- 2. Initial marking ---
     m0 = bdd.true
