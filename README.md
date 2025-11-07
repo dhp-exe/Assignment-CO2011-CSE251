@@ -12,12 +12,8 @@ This project is an assignment for the CO2011 Mathematical Modeling course, imple
 
 2.  Install the required Python libraries:
     ```bash
-    pip install pulp pyeda lxml
+    pip install pulp pyeda lxml dd
     ```
 
 ## 🚀 Running the Analysis
-
-The main script `main.py` is used to run all tasks. Use the `--help` flag to see all options.
-
-```bash
-python main.py --help
+    python main.py --file tests/fork_join.pnml --task all
