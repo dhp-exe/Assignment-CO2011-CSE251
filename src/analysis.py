@@ -30,9 +30,7 @@ def add_bdd_constraints_to_ilp(prob, bdd_manager, Reachable, M_vars, place_ids):
         return
 
     # 2. Create one "indicator" variable for each reachable marking.
-    z_vars = [
-        pulp.LpVariable(f"z_{i}", cat='Binary') for i in range(len(markings))
-    ]
+    z_vars = [pulp.LpVariable(f"z_{i}", cat='Binary') for i in range(len(markings))]
 
     # 3. Add constraint: The solver MUST pick exactly ONE marking.
     prob += (pulp.lpSum(z_vars) == 1)
